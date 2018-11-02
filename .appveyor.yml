@@ -1,0 +1,51 @@
+image: Visual Studio 2017
+
+environment:
+  boost_dot_version: 1.65.0
+  boost_under_version: 1_65_0
+  openssl_version: 1.0.2p
+  cmake_short_ver: 3.13
+  cmake_long_ver: 3.13.0-rc2
+  CMAKE_GENERATOR: Visual Studio 15 2017 Win64
+  MSBUILD_FLAGS: /verbosity:minimal /maxcpucount
+
+clone_folder: c:\dev\bitshares-core
+
+before_build:
+  - set boostdl=https://dl.bintray.com/boostorg/release/%boost_dot_version%/source/boost_%boost_under_version%.7z
+  - set cmakedl=https://cmake.org/files/v%cmake_short_ver%/cmake-%cmake_long_ver%-win32-x86.zip
+  - set openssldl=https://www.openssl.org/source/openssl-%openssl_version%.tar.gz
+  - set GRA_ROOT=c:\dev
+  - set OPENSSL_ROOT=%GRA_ROOT%\openssl
+  - set OPENSSL_ROOT_DIR=%OPENSSL_ROOT%
+  - set OPENSSL_INCLUDE_DIR=%OPENSSL_ROOT%\include
+  - set BOOST_ROOT=%GRA_ROOT%\boost
+  - set CMAKE_ROOT=%GRA_ROOT%\CMake
+  - set PATH=%CMAKE_ROOT%\bin;%BOOST_ROOT%\lib;%PATH%
+
+build_script:
+  - cd %GRA_ROOT%
+  - appveyor DownloadFile %boostdl%
+  - appveyor DownloadFile %cmakedl%
+  - appveyor DownloadFile %openssldl%
+  - 7z x boost_%boost_under_version%.7z > NUL
+  - del boost_%boost_under_version%.7z
+  - move boost_* %BOOST_ROOT%
+  - tar xzf openssl-%openssl_version%.tar.gz
+  - del openssl-%openssl_version%.tar.gz
+  - move openssl-* %OPENSSL_ROOT%
+  - unzip cmake-%cmake_long_ver%-win32-x86.zip
+  - del cmake-%cmake_long_ver%-win32-x86.zip
+  - move cmake-* CMAKE_ROOT
+  - cd %OPENSSL_ROOT%
+  - perl Configure VC-WIN64A --prefix=%OPENSSL_ROOT%
+  - ms\do_win64a
+  - nmake -f ms\ntdll.mak
+  - nmake -f ms\ntdll.mak install
+  - cd %BOOST_ROOT%
+  - bootstrap
+  - .\b2.exe address-model=64
+  - cd c:\dev\bitshares-core
+  - git submodule update --init --recursive
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=--coverage -DCMAKE_CXX_FLAGS=--coverage -DBoost_USE_STATIC_LIBS=OFF -DCMAKE_CXX_OUTPUT_EXTENSION_REPLACE=ON -DBOOST_ROOT=%BOOST_ROOT% -DOPENSSL_ROOT_DIR=%OPENSSL_ROOT% . -G "%CMAKE_GENERATOR%"
+  - cmake --build . -- %MSBUILD_FLAGS%
