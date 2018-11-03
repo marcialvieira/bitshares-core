@@ -1,0 +1,38 @@
+image: Visual Studio 2017
+
+platform:
+  - x64
+
+environment:
+  curl_version: 7.62.0
+  CMAKE_GENERATOR: Visual Studio 15 2017 Win64
+  MSBUILD_FLAGS: /verbosity:minimal /maxcpucount
+  DEV_DIR: c:\dev
+  BOOST_DIR: C:\Libraries\boost_1_65_1
+  openssldl: https://github.com/Chocobo1/openssl_win32-build/releases/download/2018.10.19/openssl-1.0.2p-64.exe
+  opensslfile: openssl-1.0.2p-64.exe
+
+clone_folder: c:\dev\bitshares-core
+
+before_build:
+  - set curldl=https://curl.haxx.se/windows/dl-%curl_version%/curl-%curl_version%-win64-mingw.zip
+  - set CURL_DIR=%DEV_DIR%\curl
+  - set OPENSSL_DIR=%DEV_DIR%\openssl
+  - call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+
+build_script:
+  - cd %DEV_DIR%
+  - appveyor DownloadFile %curldl%
+  - unzip curl-%curl_version%-win64-mingw.zip > NUL
+  - del curl-%curl_version%-win64-mingw.zip
+  - move curl-* %CURL_DIR%
+  - mkdir openssl
+  - cd openssl
+  - appveyor DownloadFile %openssldl%
+  - 7z x %opensslfile% > NUL
+  - del %opensslfile%
+  - cd %DEV_DIR%\bitshares-core
+  - git submodule update --init --recursive
+  - sed -i '/tests/d' libraries/fc/CMakeLists.txt
+  - cmake -DCMAKE_BUILD_TYPE=Release -DCURL_INCLUDE_DIR=%CURL_DIR%\include -DCURL_LIBRARY=%CURL_DIR%\lib -DBOOST_ROOT=%BOOST_DIR% -DOPENSSL_ROOT_DIR=%OPENSSL_DIR% . -G "%CMAKE_GENERATOR%"
+  - cmake --build . -- %MSBUILD_FLAGS%
